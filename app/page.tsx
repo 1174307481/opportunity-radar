@@ -121,6 +121,23 @@ interface LedgerCreateResponse {
   error?: string;
 }
 
+/** GET /api/sources 响应 */
+interface SourceRow {
+  id: number;
+  key: string;
+  label: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  lastRunAt: number | null;
+  lastStatus: string;
+  lastMessage: string;
+  createdAt: number;
+}
+
+interface SourcesResponse {
+  sources: SourceRow[];
+}
+
 type Notice = { kind: "info" | "error"; text: string };
 
 /** 卡片内的即时提示（只在该机会卡片下显示） */
@@ -132,6 +149,16 @@ const TERMINAL_STAGES = ["ready", "archived", "failed"];
 /** 发出话术后 3 天跟进（模块级，避免渲染期直接调用 Date.now） */
 function followUpAtIn3Days(): number {
   return Date.now() + 3 * 86400e3;
+}
+
+/** 相对时间：now - lastRunAt，用于数据源最近采集时间展示 */
+function formatRelativeTime(ms: number | null): string {
+  if (ms === null) return "未运行";
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  return new Date(ms).toLocaleDateString();
 }
 
 export default function HomePage() {
@@ -158,6 +185,12 @@ export default function HomePage() {
   /** 今天做这一件事 + 到期跟进 */
   const [focusData, setFocusData] = useState<TodayFocusData | null>(null);
   const [focusBusy, setFocusBusy] = useState(false);
+
+  /** 📡 数据源状态 */
+  const [sources, setSources] = useState<SourceRow[] | null>(null);
+  const [sourcesUnavailable, setSourcesUnavailable] = useState(false);
+  const [toggleBusyKey, setToggleBusyKey] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   /** ---------- 数据加载 ---------- */
 
@@ -189,6 +222,23 @@ export default function HomePage() {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  /** 📡 数据源：挂载时拉取一次，失败静默 */
+  const loadSources = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sources", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as SourcesResponse;
+      setSources(data.sources ?? []);
+      setSourcesUnavailable(false);
+    } catch {
+      setSourcesUnavailable(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSources();
+  }, [loadSources]);
 
   /** ---------- 轮询分析进度 ---------- */
 
@@ -463,6 +513,38 @@ export default function HomePage() {
       setNotice({ kind: "error", text: (e as Error).message || "操作失败" });
     } finally {
       setFocusBusy(false);
+    }
+  };
+
+  /** ---------- 数据源开关 ---------- */
+
+  const handleToggleSource = async (row: SourceRow) => {
+    if (toggleBusyKey !== null) return;
+    setToggleBusyKey(row.key);
+    setToggleError(null);
+    try {
+      const next = !row.enabled;
+      const res = await fetch("/api/sources", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: row.key, enabled: next }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      // 局部更新该行
+      setSources((prev) =>
+        prev
+          ? prev.map((s) => (s.key === row.key ? { ...s, enabled: next } : s))
+          : prev
+      );
+    } catch (e) {
+      setToggleError((e as Error).message || "操作失败");
+    } finally {
+      setToggleBusyKey(null);
     }
   };
 
@@ -897,6 +979,82 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* 📡 数据源 */}
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-neutral-400">📡 数据源</h2>
+          <span className="text-xs text-neutral-600">
+            每小时 13/43 分自动采集
+          </span>
+        </div>
+
+        {sourcesUnavailable ? (
+          <p className="text-xs text-neutral-600">数据源状态不可用</p>
+        ) : sources === null ? (
+          <p className="text-xs text-neutral-600">载入中…</p>
+        ) : (
+          <>
+            <ul className="flex flex-col divide-y divide-neutral-800">
+              {sources.map((row) => {
+                const dot = row.enabled
+                  ? row.lastStatus === "ok"
+                    ? "bg-emerald-500"
+                    : "bg-red-500"
+                  : "bg-neutral-600";
+                const busy = toggleBusyKey === row.key;
+                return (
+                  <li
+                    key={row.key}
+                    className={`flex items-center gap-3 py-2.5 ${
+                      !row.enabled ? "opacity-50" : ""
+                    }`}
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${dot}`}
+                    />
+                    <span className="shrink-0 text-sm text-neutral-300">
+                      {row.label}
+                    </span>
+                    <span className="shrink-0 text-xs text-neutral-500">
+                      {formatRelativeTime(row.lastRunAt)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+                      {row.lastMessage}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleSource(row)}
+                      disabled={busy}
+                      className="shrink-0 rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {busy ? "处理中…" : row.enabled ? "停用" : "启用"}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {toggleError ? (
+              <p className="mt-2 text-xs text-red-400">{toggleError}</p>
+            ) : null}
+
+            {/* 手动录入通道 */}
+            <ul className="mt-3 flex flex-col gap-1.5 border-t border-neutral-800 pt-3">
+              <li className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
+                <span>粘贴录入 · 首页输入框，空行分隔可批量</span>
+              </li>
+              <li className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
+                <span>
+                  闲鱼/BOSS 快录 · Tampermonkey 脚本，单条一键投递（合规：不爬取）
+                </span>
+              </li>
+            </ul>
+          </>
         )}
       </section>
     </div>
