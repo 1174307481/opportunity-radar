@@ -10,6 +10,15 @@ type Tier = "today" | "week" | "archived" | "observe";
 type Status = "new" | "researching" | "contacted" | "deal" | "ignored";
 type TierFilter = Tier | "all";
 type StatusFilter = Status | "all";
+type SourceFilter = "all" | "manual" | "eleduck" | "hn" | "github";
+
+const SOURCE_OPTIONS: { key: SourceFilter; label: string }[] = [
+  { key: "all", label: "全部来源" },
+  { key: "manual", label: "手动录入" },
+  { key: "eleduck", label: "电鸭社区" },
+  { key: "hn", label: "Hacker News" },
+  { key: "github", label: "GitHub" },
+];
 
 /** 后端 /api/opportunities 返回的行 */
 interface Row {
@@ -150,6 +159,7 @@ function updateList(
 export default function OpportunitiesPage() {
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [queryInput, setQueryInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -176,6 +186,7 @@ export default function OpportunitiesPage() {
       const params = new URLSearchParams();
       if (tierFilter !== "all") params.set("tier", tierFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (sourceFilter !== "all") params.set("source", sourceFilter);
       const keyword = debouncedQuery.trim();
       if (keyword) params.set("query", keyword);
       const qs = params.toString();
@@ -194,7 +205,7 @@ export default function OpportunitiesPage() {
     } finally {
       if (seq === listSeq.current) setLoading(false);
     }
-  }, [tierFilter, statusFilter, debouncedQuery]);
+  }, [tierFilter, statusFilter, sourceFilter, debouncedQuery]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -310,6 +321,19 @@ export default function OpportunitiesPage() {
             {STATUS_ORDER.map((status) => (
               <option key={status} value={status}>
                 {STATUS_META[status]}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+            aria-label="按来源筛选"
+            className={`${SELECT} sm:w-32`}
+          >
+            {SOURCE_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key}>
+                {opt.label}
               </option>
             ))}
           </select>

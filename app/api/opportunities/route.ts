@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { items, opportunities } from "@/lib/db/schema";
 
@@ -25,11 +25,12 @@ function toLikePattern(keyword: string): string {
   return `%${escaped}%`;
 }
 
-/** 机会列表：支持 ?tier= &status= &query= 过滤，createdAt 倒序，上限 200 */
+/** 机会列表：支持 ?tier= &status= &source= &query= 过滤，createdAt 倒序，上限 200 */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tierParam = (searchParams.get("tier") || "").trim();
   const statusParam = (searchParams.get("status") || "").trim();
+  const sourceParam = (searchParams.get("source") || "").trim();
   const query = (searchParams.get("query") || "").trim();
 
   if (tierParam && !isTier(tierParam)) {
@@ -37,6 +38,16 @@ export async function GET(req: Request) {
   }
   if (statusParam && !isStatus(statusParam)) {
     return NextResponse.json({ error: "status 不合法" }, { status: 400 });
+  }
+  // source 过滤：manual = 手动录入（text/url 合并），其余按 source:<key> 精确匹配；all/空 = 不过滤
+  const SOURCE_KEYS = ["eleduck", "hn", "github"] as const;
+  let sourceCond: SQL | null = null;
+  if (sourceParam === "manual") {
+    sourceCond = inArray(items.sourceType, ["text", "url"]);
+  } else if ((SOURCE_KEYS as readonly string[]).includes(sourceParam)) {
+    sourceCond = eq(items.sourceType, `source:${sourceParam}`);
+  } else if (sourceParam && sourceParam !== "all") {
+    return NextResponse.json({ error: "source 不合法" }, { status: 400 });
   }
 
   // 实际档位：用户改档优先于机器档
@@ -54,6 +65,7 @@ export async function GET(req: Request) {
   if (query) {
     conds.push(sql`${items.title} LIKE ${toLikePattern(query)} ESCAPE '\\'`);
   }
+  if (sourceCond) conds.push(sourceCond);
 
   const rows = await db
     .select({
