@@ -1,4 +1,4 @@
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, notLike, or } from "drizzle-orm";
 import { db } from "./db";
 import { items, opportunities, userActions } from "./db/schema";
 import { runL1, type L1Result } from "./ai/l1";
@@ -384,12 +384,19 @@ async function processBatch(itemIds: number[]): Promise<void> {
   }
 }
 
-/** 进程启动时补偿：把上次重启丢在队列里的非终态条目重新入队 */
+/** 进程启动时补偿：把上次重启丢在队列里的非终态条目重新入队。
+ *  热点条目（source:*-hot）走独立流水线（lib/hotspot-pipeline.ts），不能混进 L1：
+ *  L1 的「无需求方=噪声」规则会把热榜条目全部判噪归档。 */
 export async function recoverPendingItems(): Promise<number> {
   const stuck = await db
     .select({ id: items.id })
     .from(items)
-    .where(or(eq(items.aiStage, "pending"), eq(items.aiStage, "l1_done")));
+    .where(
+      and(
+        or(eq(items.aiStage, "pending"), eq(items.aiStage, "l1_done")),
+        notLike(items.sourceType, "source:%-hot"),
+      ),
+    );
   for (const s of stuck) {
     if (!inFlight.has(s.id)) {
       console.log(`[pipeline] 恢复未完成条目 item ${s.id}`);

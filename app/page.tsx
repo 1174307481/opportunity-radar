@@ -29,6 +29,7 @@ interface TodayItem {
   verdict: string;
   firstStep: FirstStep | null;
   sourceType: string;
+  createdAt: number;
 }
 
 interface WeekItem {
@@ -40,6 +41,7 @@ interface WeekItem {
   skillMatch: number | null;
   status: string;
   sourceType: string;
+  createdAt: number;
 }
 
 interface Counts {
@@ -47,6 +49,8 @@ interface Counts {
   week: number;
   archived: number;
   items: number;
+  todayScanned: number;
+  todayRejected: number;
 }
 
 interface RecentItem {
@@ -161,6 +165,17 @@ function formatRelativeTime(ms: number | null): string {
   return new Date(ms).toLocaleDateString();
 }
 
+/** 相对时间：机会发现时间展示（刚刚/X分钟前/X小时前/昨天/M月D日） */
+function formatFoundTime(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  if (diff < 2 * 86_400_000) return "昨天";
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
 export default function HomePage() {
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -191,6 +206,10 @@ export default function HomePage() {
   const [sourcesUnavailable, setSourcesUnavailable] = useState(false);
   const [toggleBusyKey, setToggleBusyKey] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+
+  /** 折叠区开关：快速录入 / 数据源（默认收起，不持久化） */
+  const [showEntry, setShowEntry] = useState(false);
+  const [showSources, setShowSources] = useState(false);
 
   /** ---------- 数据加载 ---------- */
 
@@ -652,169 +671,6 @@ export default function HomePage() {
         ) : null}
       </section>
 
-      {/* 🎯 今天做这一件事 */}
-      {focus ? (
-        focus.done ? (
-          <section className="rounded-xl border border-emerald-900/60 bg-emerald-950/20 px-5 py-6 text-center">
-            <p className="text-base font-medium text-emerald-300">
-              ✅ 今日事今日毕。别的机会明天再说。
-            </p>
-          </section>
-        ) : (
-          <section className="rounded-xl border-2 border-red-800 bg-red-950/30 p-5">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-red-400">
-              🎯 今天做这一件事
-            </h2>
-            <Link
-              href={`/opportunities/${focus.opportunityId}`}
-              className="mt-3 block text-xl font-semibold text-neutral-50 hover:underline"
-            >
-              {focus.title || "（无标题）"}
-            </Link>
-            <button
-              type="button"
-              onClick={() => void handleCompleteFocus()}
-              disabled={focusBusy}
-              className="mt-4 rounded-lg border border-emerald-800 bg-emerald-950/70 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-900/70 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {focusBusy ? "处理中…" : "标记完成"}
-            </button>
-          </section>
-        )
-      ) : today.length > 0 ? (
-        <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-red-400">
-            🎯 今天做这一件事
-          </h2>
-          <p className="mt-2 text-sm text-neutral-400">
-            从今天的 {today.length} 条机会里挑一件，只做这一件。
-          </p>
-          <ul className="mt-3 flex flex-col gap-2">
-            {today.map((item) => (
-              <li
-                key={`focus-pick-${item.opportunityId}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60 px-3 py-2"
-              >
-                <Link
-                  href={`/opportunities/${item.opportunityId}`}
-                  className="min-w-0 truncate text-sm text-neutral-300 hover:underline"
-                >
-                  {item.title || "（无标题）"}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void handleSetFocus(item.opportunityId)}
-                  disabled={focusBusy}
-                  className="shrink-0 rounded-md border border-red-900 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  就做它
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* ⏰ 到期跟进 */}
-      {dueFollowUps.length > 0 ? (
-        <section className="rounded-xl border border-amber-900/60 bg-amber-950/20 px-4 py-3">
-          <h2 className="mb-2 text-sm font-semibold text-amber-400">⏰ 到期跟进</h2>
-          <ul className="flex flex-col divide-y divide-amber-900/30">
-            {dueFollowUps.map((d) => (
-              <li
-                key={`due-${d.ledgerId}`}
-                className="flex items-center justify-between gap-3 py-2"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <Link
-                    href={`/opportunities/${d.opportunityId}`}
-                    className="truncate text-sm text-neutral-200 hover:underline"
-                  >
-                    {d.title || "（无标题）"}
-                  </Link>
-                  {d.note ? (
-                    <span className="truncate text-xs text-neutral-500">
-                      {d.note}
-                    </span>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleLedgerFollowUpDone(d.ledgerId)}
-                  disabled={focusBusy}
-                  className="shrink-0 rounded-md border border-emerald-900 bg-emerald-950/60 px-3 py-1.5 text-xs text-emerald-300 transition-colors hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  已跟进
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* 快速录入 */}
-      <section>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-              e.preventDefault();
-              void handleSubmit();
-            }
-          }}
-          rows={4}
-          placeholder="粘贴链接、需求原文，或闲鱼/群里的机会文案（空行分隔可批量）…"
-          className="w-full resize-y rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-200 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
-        />
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={submitting || content.trim().length === 0}
-            className="rounded-lg border border-red-900 bg-red-950/60 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {submitting ? "提交中…" : "投入雷达"}
-          </button>
-          <span className="text-xs text-neutral-600">
-            ⌘/Ctrl + Enter 快捷提交 · 闲鱼/群里的机会：标题+价格+描述整段贴进来
-          </span>
-        </div>
-
-        {notice ? (
-          <p
-            className={`mt-3 text-sm ${
-              notice.kind === "error" ? "text-red-400" : "text-neutral-400"
-            }`}
-          >
-            {notice.text}
-          </p>
-        ) : null}
-
-        {polling ? (
-          <div className="mt-3 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm">
-            <span className="inline-flex items-center gap-2 text-neutral-300">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              {stage === "l1_done" ? "已通过初筛，深分析中" : "分析中…"}
-            </span>
-          </div>
-        ) : null}
-
-        {failed ? (
-          <div className="mt-3 rounded-lg border border-red-900/70 bg-red-950/30 px-4 py-3">
-            <p className="text-sm text-red-400">分析失败：{failed.message}</p>
-            <button
-              type="button"
-              onClick={() => void handleReanalyze(failed.itemId)}
-              disabled={reanalyzing}
-              className="mt-2 rounded-md border border-red-900 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {reanalyzing ? "提交中…" : "重新分析"}
-            </button>
-          </div>
-        ) : null}
-      </section>
-
       {/* 顶部统计 */}
       <p className="text-xs text-neutral-500">
         {counts
@@ -826,19 +682,49 @@ export default function HomePage() {
         <p className="text-sm text-red-400">数据加载失败：{dashboardError}</p>
       ) : null}
 
-      {/* 🔴 今天看 */}
+      {/* 🔴 今天看（含「今天做这一件事」，合并避免读两遍） */}
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-400">
           🔴 今天看
         </h2>
 
+        {/* 🎯 今天做这一件事 —— 合并进今天看，不再单列 */}
+        {focus?.done ? (
+          <div className="mb-3 rounded-xl border border-emerald-900/60 bg-emerald-950/20 px-5 py-4 text-center">
+            <p className="text-sm font-medium text-emerald-300">
+              ✅ 今日事今日毕。别的机会明天再说。
+            </p>
+          </div>
+        ) : focus ? (
+          <div className="mb-3 rounded-xl border-2 border-red-800 bg-red-950/30 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-red-400">
+              🎯 今天就做这一件
+            </h3>
+            <Link
+              href={`/opportunities/${focus.opportunityId}`}
+              className="mt-2 block truncate text-lg font-semibold text-neutral-50 hover:underline"
+            >
+              {focus.title || "（无标题）"}
+            </Link>
+            <button
+              type="button"
+              onClick={() => void handleCompleteFocus()}
+              disabled={focusBusy}
+              className="mt-3 rounded-lg border border-emerald-800 bg-emerald-950/70 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-900/70 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {focusBusy ? "处理中…" : "标记完成"}
+            </button>
+          </div>
+        ) : null}
+
         {today.length === 0 ? (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-16 text-center">
-            <p className="text-xl font-semibold text-neutral-200">
-              今天没有值得看的机会
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-12 text-center">
+            <p className="text-base font-semibold text-neutral-300">
+              今天已扫 {counts?.todayScanned ?? 0} 条 · 剔除噪声{" "}
+              {counts?.todayRejected ?? 0} 条 · 无入围
             </p>
             <p className="mt-3 text-sm text-neutral-500">
-              没有新信号就不硬塞。去录入一条，或者去干正事。
+              没有新信号就不硬塞。雷达在干活，只是今天没有值得动手的。
             </p>
           </div>
         ) : (
@@ -876,6 +762,11 @@ export default function HomePage() {
                           ⚡ 接单·待验真
                         </span>
                       ) : null}
+                      {item.createdAt ? (
+                        <span className="text-[11px] text-neutral-600">
+                          {formatFoundTime(item.createdAt)}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="shrink-0 text-right text-xs text-neutral-500">
                       匹配{" "}
@@ -899,6 +790,28 @@ export default function HomePage() {
                   ) : null}
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                      >
+                        打开原帖 ↗
+                      </a>
+                    ) : null}
+
+                    {!focus ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleSetFocus(item.opportunityId)}
+                        disabled={focusBusy}
+                        className="rounded-md border border-red-900 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        就做它
+                      </button>
+                    ) : null}
+
                     {fs?.copyable_first_message ? (
                       <button
                         type="button"
@@ -947,6 +860,43 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* ⏰ 到期跟进 */}
+      {dueFollowUps.length > 0 ? (
+        <section className="rounded-xl border border-amber-900/60 bg-amber-950/20 px-4 py-3">
+          <h2 className="mb-2 text-sm font-semibold text-amber-400">⏰ 到期跟进</h2>
+          <ul className="flex flex-col divide-y divide-amber-900/30">
+            {dueFollowUps.map((d) => (
+              <li
+                key={`due-${d.ledgerId}`}
+                className="flex items-center justify-between gap-3 py-2"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <Link
+                    href={`/opportunities/${d.opportunityId}`}
+                    className="truncate text-sm text-neutral-200 hover:underline"
+                  >
+                    {d.title || "（无标题）"}
+                  </Link>
+                  {d.note ? (
+                    <span className="truncate text-xs text-neutral-500">
+                      {d.note}
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleLedgerFollowUpDone(d.ledgerId)}
+                  disabled={focusBusy}
+                  className="shrink-0 rounded-md border border-emerald-900 bg-emerald-950/60 px-3 py-1.5 text-xs text-emerald-300 transition-colors hover:bg-emerald-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  已跟进
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* 🟡 本周看 */}
       <section>
         <h2 className="mb-3 text-sm font-semibold text-neutral-400">🟡 本周看</h2>
@@ -972,6 +922,11 @@ export default function HomePage() {
                   <span className="shrink-0 text-[11px] text-neutral-600">
                     {sourceLabel(item.sourceType)}
                   </span>
+                  {item.createdAt ? (
+                    <span className="shrink-0 text-[11px] text-neutral-600">
+                      {formatFoundTime(item.createdAt)}
+                    </span>
+                  ) : null}
                 </div>
                 <span className="shrink-0 text-xs text-neutral-500">
                   {item.score ?? "—"}
@@ -982,80 +937,168 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* 📡 数据源 */}
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-neutral-400">📡 数据源</h2>
-          <span className="text-xs text-neutral-600">
-            每小时 13/43 分自动采集
+      {/* 快速录入（默认折叠） */}
+      <section>
+        <button
+          type="button"
+          onClick={() => setShowEntry((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-300 transition-colors hover:border-neutral-700"
+        >
+          <span className="font-medium">
+            {showEntry ? "▼ 收起录入" : "＋ 录入一条信息"}
           </span>
-        </div>
+          <span className="text-xs text-neutral-600">
+            粘贴链接 / 需求原文 / 闲鱼文案（空行分隔可批量）
+          </span>
+        </button>
 
-        {sourcesUnavailable ? (
-          <p className="text-xs text-neutral-600">数据源状态不可用</p>
-        ) : sources === null ? (
-          <p className="text-xs text-neutral-600">载入中…</p>
-        ) : (
-          <>
-            <ul className="flex flex-col divide-y divide-neutral-800">
-              {sources.map((row) => {
-                const dot = row.enabled
-                  ? row.lastStatus === "ok"
-                    ? "bg-emerald-500"
-                    : "bg-red-500"
-                  : "bg-neutral-600";
-                const busy = toggleBusyKey === row.key;
-                return (
-                  <li
-                    key={row.key}
-                    className={`flex items-center gap-3 py-2.5 ${
-                      !row.enabled ? "opacity-50" : ""
-                    }`}
-                  >
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${dot}`}
-                    />
-                    <span className="shrink-0 text-sm text-neutral-300">
-                      {row.label}
-                    </span>
-                    <span className="shrink-0 text-xs text-neutral-500">
-                      {formatRelativeTime(row.lastRunAt)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
-                      {row.lastMessage}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleToggleSource(row)}
-                      disabled={busy}
-                      className="shrink-0 rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {busy ? "处理中…" : row.enabled ? "停用" : "启用"}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+        {showEntry ? (
+          <div className="mt-3">
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  void handleSubmit();
+                }
+              }}
+              rows={4}
+              placeholder="粘贴链接、需求原文，或闲鱼/群里的机会文案（空行分隔可批量）…"
+              className="w-full resize-y rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-200 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+            />
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={submitting || content.trim().length === 0}
+                className="rounded-lg border border-red-900 bg-red-950/60 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submitting ? "提交中…" : "投入雷达"}
+              </button>
+              <span className="text-xs text-neutral-600">
+                ⌘/Ctrl + Enter 快捷提交 · 闲鱼/群里的机会：标题+价格+描述整段贴进来
+              </span>
+            </div>
 
-            {toggleError ? (
-              <p className="mt-2 text-xs text-red-400">{toggleError}</p>
+            {notice ? (
+              <p
+                className={`mt-3 text-sm ${
+                  notice.kind === "error" ? "text-red-400" : "text-neutral-400"
+                }`}
+              >
+                {notice.text}
+              </p>
             ) : null}
 
-            {/* 手动录入通道 */}
-            <ul className="mt-3 flex flex-col gap-1.5 border-t border-neutral-800 pt-3">
-              <li className="flex items-center gap-3 text-xs text-neutral-500">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
-                <span>粘贴录入 · 首页输入框，空行分隔可批量</span>
-              </li>
-              <li className="flex items-center gap-3 text-xs text-neutral-500">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
-                <span>
-                  闲鱼/BOSS 快录 · Tampermonkey 脚本，单条一键投递（合规：不爬取）
+            {polling ? (
+              <div className="mt-3 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm">
+                <span className="inline-flex items-center gap-2 text-neutral-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  {stage === "l1_done" ? "已通过初筛，深分析中" : "分析中…"}
                 </span>
-              </li>
-            </ul>
-          </>
-        )}
+              </div>
+            ) : null}
+
+            {failed ? (
+              <div className="mt-3 rounded-lg border border-red-900/70 bg-red-950/30 px-4 py-3">
+                <p className="text-sm text-red-400">分析失败：{failed.message}</p>
+                <button
+                  type="button"
+                  onClick={() => void handleReanalyze(failed.itemId)}
+                  disabled={reanalyzing}
+                  className="mt-2 rounded-md border border-red-900 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {reanalyzing ? "提交中…" : "重新分析"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      {/* 📡 数据源（默认折叠） */}
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900">
+        <button
+          type="button"
+          onClick={() => setShowSources((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 transition-colors hover:text-neutral-100"
+        >
+          <span className="text-sm font-semibold text-neutral-400">📡 数据源</span>
+          <span className="text-xs text-neutral-600">
+            {showSources ? "收起 ▲" : "展开 ▼"} · 每小时 13/43 分自动采集
+          </span>
+        </button>
+
+        {showSources ? (
+          <div className="px-4 pb-3">
+            {sourcesUnavailable ? (
+              <p className="text-xs text-neutral-600">数据源状态不可用</p>
+            ) : sources === null ? (
+              <p className="text-xs text-neutral-600">载入中…</p>
+            ) : (
+              <>
+                <ul className="flex flex-col divide-y divide-neutral-800">
+                  {sources.map((row) => {
+                    const dot = row.enabled
+                      ? row.lastStatus === "ok"
+                        ? "bg-emerald-500"
+                        : "bg-red-500"
+                      : "bg-neutral-600";
+                    const busy = toggleBusyKey === row.key;
+                    return (
+                      <li
+                        key={row.key}
+                        className={`flex items-center gap-3 py-2.5 ${
+                          !row.enabled ? "opacity-50" : ""
+                        }`}
+                      >
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${dot}`}
+                        />
+                        <span className="shrink-0 text-sm text-neutral-300">
+                          {row.label}
+                        </span>
+                        <span className="shrink-0 text-xs text-neutral-500">
+                          {formatRelativeTime(row.lastRunAt)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+                          {row.lastMessage}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleSource(row)}
+                          disabled={busy}
+                          className="shrink-0 rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {busy ? "处理中…" : row.enabled ? "停用" : "启用"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {toggleError ? (
+                  <p className="mt-2 text-xs text-red-400">{toggleError}</p>
+                ) : null}
+
+                {/* 手动录入通道 */}
+                <ul className="mt-3 flex flex-col gap-1.5 border-t border-neutral-800 pt-3">
+                  <li className="flex items-center gap-3 text-xs text-neutral-500">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
+                    <span>粘贴录入 · 首页输入框，空行分隔可批量</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-xs text-neutral-500">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
+                    <span>
+                      闲鱼/BOSS 快录 · Tampermonkey 脚本，单条一键投递（合规：不爬取）
+                    </span>
+                  </li>
+                </ul>
+              </>
+            )}
+          </div>
+        ) : null}
       </section>
     </div>
   );

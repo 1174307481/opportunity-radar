@@ -130,6 +130,7 @@ async function runCollect(req: Request): Promise<NextResponse> {
       .update(sources)
       .set({ lastRunAt: now, lastStatus: "ok", lastMessage: message })
       .where(eq(sources.id, row.id));
+    console.log(`[collect] ${row.key} ✓ ${message}`);
     results.push({
       key: row.key,
       found: signals.length,

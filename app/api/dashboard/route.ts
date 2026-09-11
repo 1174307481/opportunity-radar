@@ -118,6 +118,7 @@ export async function GET() {
       verdict: a?.verdict ?? "",
       firstStep: a?.first_step ?? null,
       sourceType: r.sourceType,
+      createdAt: r.createdAt,
     };
   });
 
@@ -140,6 +141,27 @@ export async function GET() {
     .select({ total: sql<number>`count(*)` })
     .from(items);
 
+  // 雷达工作证明：今日入库数 + 今日剔除噪声数
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+  const [{ scannedToday }] = await db
+    .select({ scannedToday: sql<number>`count(*)` })
+    .from(items)
+    .where(sql`${items.foundAt} >= ${todayStart}`);
+  const [{ rejectedToday }] = await db
+    .select({ rejectedToday: sql<number>`count(*)` })
+    .from(items)
+    .where(
+      and(
+        sql`${items.foundAt} >= ${todayStart}`,
+        or(eq(items.aiStage, "archived"), eq(items.aiStage, "failed"))
+      )
+    );
+
   const recentItems = await db
     .select({
       id: items.id,
@@ -161,6 +183,7 @@ export async function GET() {
       skillMatch: opportunities.skillMatch,
       status: opportunities.status,
       sourceType: items.sourceType,
+      createdAt: opportunities.createdAt,
     })
     .from(opportunities)
     .innerJoin(items, eq(items.id, opportunities.itemId))
@@ -178,7 +201,12 @@ export async function GET() {
   return NextResponse.json({
     today,
     week: weekList,
-    counts: { ...counts, items: total },
+    counts: {
+      ...counts,
+      items: total,
+      todayScanned: scannedToday,
+      todayRejected: rejectedToday,
+    },
     recentItems,
     kpi,
   });

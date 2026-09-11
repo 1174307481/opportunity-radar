@@ -36,10 +36,15 @@ interface ScoreItem {
 }
 
 interface Scores {
+  // L2 四维
   需求真实性?: ScoreItem | null;
   行动可行性?: ScoreItem | null;
   独特性?: ScoreItem | null;
   时效性?: ScoreItem | null;
+  // L3 热点衍生四维
+  热度证据?: ScoreItem | null;
+  启动成本?: ScoreItem | null;
+  变现路径清晰度?: ScoreItem | null;
 }
 
 interface HourlyCheck {
@@ -58,6 +63,38 @@ interface FirstStep {
   quantity: string;
   completion_rule: string;
   copyable_first_message: string;
+  /** L3 热点衍生：上架文案（替代 copyable_first_message） */
+  copyable_listing_copy?: string | null;
+}
+
+/** L3 热点衍生：变现假设字段（见设计稿 §2.2） */
+interface WhatToSell {
+  deliverable?: string | null;
+  format?: string | null;
+  why_this?: string | null;
+}
+
+interface WhereToSell {
+  primary?: string | null;
+  why?: string | null;
+}
+
+interface PricingAnchor {
+  reference?: string | null;
+  suggested_price?: string | number | null;
+  basis?: string | null;
+}
+
+interface TimeWindow {
+  days_left?: number | string | null;
+  peak_prediction?: string | null;
+  basis?: string | null;
+}
+
+interface CompetitionHeat {
+  already_selling?: boolean | null;
+  level?: string | null;
+  differentiation?: string | null;
 }
 
 interface Analysis {
@@ -68,6 +105,13 @@ interface Analysis {
   hourly_check?: HourlyCheck | null;
   verdict?: string | null;
   first_step?: FirstStep | null;
+  /** L3 热点衍生：变现假设 */
+  trend_summary?: string | null;
+  what_to_sell?: WhatToSell | null;
+  where_to_sell?: WhereToSell | null;
+  pricing_anchor?: PricingAnchor | null;
+  time_window?: TimeWindow | null;
+  competition_heat?: CompetitionHeat | null;
 }
 
 interface Opportunity {
@@ -179,6 +223,14 @@ const SCORE_DIMS: { key: keyof Scores; label: string; max: number }[] = [
   { key: "需求真实性", label: "需求真实性", max: 40 },
   { key: "行动可行性", label: "行动可行性", max: 30 },
   { key: "独特性", label: "独特性", max: 15 },
+  { key: "时效性", label: "时效性", max: 15 },
+];
+
+/** L3 热点衍生四维评分（权重 30/25/30/15，见设计稿 §3.1） */
+const SCORE_DIMS_HOTSPOT: { key: keyof Scores; label: string; max: number }[] = [
+  { key: "热度证据", label: "热度证据", max: 30 },
+  { key: "启动成本", label: "启动成本", max: 25 },
+  { key: "变现路径清晰度", label: "变现路径清晰度", max: 30 },
   { key: "时效性", label: "时效性", max: 15 },
 ];
 
@@ -565,9 +617,13 @@ export default function OpportunityDetailPage({
       : null;
   const activeStatus: Status | null = isStatus(opp.status) ? (opp.status as Status) : null;
 
+  /** 热点衍生机会走 L3 配置，其余走 L2 */
+  const isHotspot = opp.type === "热点衍生";
+  const scoreDims = isHotspot ? SCORE_DIMS_HOTSPOT : SCORE_DIMS;
+
   const scores = analysis?.scores ?? null;
-  const rawScores = SCORE_DIMS.map((d) => scores?.[d.key]?.score ?? null);
-  const percentMode = SCORE_DIMS.some((d, i) => (rawScores[i] ?? 0) > d.max);
+  const rawScores = scoreDims.map((d) => scores?.[d.key]?.score ?? null);
+  const percentMode = scoreDims.some((d, i) => (rawScores[i] ?? 0) > d.max);
 
   const evidence = analysis?.evidence_trilogy ?? null;
   const evidenceRows: { label: string; value: EvidenceItem | null | undefined }[] = [
@@ -580,6 +636,31 @@ export default function OpportunityDetailPage({
   const hourly = analysis?.hourly_check ?? null;
   const firstStep = analysis?.first_step ?? null;
   const skillDetail = Array.isArray(opp.skillMatchDetail) ? opp.skillMatchDetail : [];
+
+  /** 第一步：热点衍生用「上架文案」+ copyable_listing_copy，其余用「开口话术」+ copyable_first_message */
+  const firstStepCopyLabel = isHotspot ? "上架文案" : "开口话术";
+  const firstStepCopyButton = isHotspot ? "复制文案" : "复制话术";
+  const firstStepCopyContent = isHotspot
+    ? (firstStep?.copyable_listing_copy ?? firstStep?.copyable_first_message)
+    : firstStep?.copyable_first_message;
+
+  /** 变现假设：L3 字段（可能部分缺失，逐块兜底） */
+  const whatToSell = analysis?.what_to_sell ?? null;
+  const whereToSell = analysis?.where_to_sell ?? null;
+  const pricingAnchor = analysis?.pricing_anchor ?? null;
+  const timeWindow = analysis?.time_window ?? null;
+  const competitionHeat = analysis?.competition_heat ?? null;
+  const daysLeftRaw = timeWindow?.days_left;
+  const daysLeftNum =
+    typeof daysLeftRaw === "number"
+      ? daysLeftRaw
+      : typeof daysLeftRaw === "string"
+        ? Number(daysLeftRaw)
+        : NaN;
+  const daysLeftUrgent = Number.isFinite(daysLeftNum) && daysLeftNum <= 3;
+  const hasMonetizationHypothesis = Boolean(
+    whatToSell || whereToSell || pricingAnchor || timeWindow || competitionHeat
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -739,8 +820,89 @@ export default function OpportunityDetailPage({
             </section>
           ) : null}
 
-          {/* 4. 三证 */}
-          <Section title="📋 三证">
+          {/* 3.5 变现假设（L3 热点衍生专用） */}
+          {isHotspot && hasMonetizationHypothesis ? (
+            <Section title="💡 变现假设">
+              <div className="flex flex-col gap-4">
+                {whatToSell ? (
+                  <div className="border-l-2 border-neutral-800 pl-3">
+                    <div className="text-xs font-medium text-neutral-300">卖什么</div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <KeyValue label="交付物" value={text(whatToSell.deliverable)} />
+                      <KeyValue label="格式" value={text(whatToSell.format)} />
+                      <KeyValue label="为什么" value={text(whatToSell.why_this)} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {whereToSell ? (
+                  <div className="border-l-2 border-neutral-800 pl-3">
+                    <div className="text-xs font-medium text-neutral-300">在哪卖</div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <KeyValue label="主渠道" value={text(whereToSell.primary)} />
+                      <KeyValue label="为什么" value={text(whereToSell.why)} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {pricingAnchor ? (
+                  <div className="border-l-2 border-neutral-800 pl-3">
+                    <div className="text-xs font-medium text-neutral-300">定价锚</div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <KeyValue label="参考行情" value={text(pricingAnchor.reference)} />
+                      <KeyValue label="建议定价" value={text(pricingAnchor.suggested_price)} />
+                      <KeyValue label="依据" value={text(pricingAnchor.basis)} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {timeWindow ? (
+                  <div className="border-l-2 border-neutral-800 pl-3">
+                    <div className="text-xs font-medium text-neutral-300">时效窗</div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                        <span className="w-20 shrink-0 text-xs text-neutral-500">剩余天数</span>
+                        <span className="min-w-0 flex-1 text-sm break-words whitespace-pre-wrap text-neutral-200">
+                          {Number.isFinite(daysLeftNum)
+                            ? `${daysLeftNum} 天`
+                            : text(timeWindow.days_left)}
+                          {daysLeftUrgent ? (
+                            <span className="ml-2 text-xs text-red-400">窗口紧</span>
+                          ) : null}
+                        </span>
+                      </div>
+                      <KeyValue label="峰值预测" value={text(timeWindow.peak_prediction)} />
+                      <KeyValue label="依据" value={text(timeWindow.basis)} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {competitionHeat ? (
+                  <div className="border-l-2 border-neutral-800 pl-3">
+                    <div className="text-xs font-medium text-neutral-300">竞争热度</div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <KeyValue
+                        label="是否在卖"
+                        value={
+                          competitionHeat.already_selling == null
+                            ? "—"
+                            : competitionHeat.already_selling
+                              ? "是"
+                              : "否"
+                        }
+                      />
+                      <KeyValue label="竞争级别" value={text(competitionHeat.level)} />
+                      <KeyValue label="差异化" value={text(competitionHeat.differentiation)} />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </Section>
+          ) : null}
+
+          {/* 4. 三证（需求侧分析专用，热点衍生不显示） */}
+          {!isHotspot ? (
+            <Section title="📋 三证">
             <div className="flex flex-col gap-3">
               {evidenceRows.map((row) => {
                 const proof = row.value?.依据;
@@ -767,7 +929,8 @@ export default function OpportunityDetailPage({
                 总体结论：{evidence.总体结论}
               </p>
             ) : null}
-          </Section>
+            </Section>
+          ) : null}
 
           {/* 5. 四维评分 */}
           <Section
@@ -780,7 +943,7 @@ export default function OpportunityDetailPage({
           >
             {scores ? (
               <div className="flex flex-col gap-3">
-                {SCORE_DIMS.map((dim, i) => {
+                {scoreDims.map((dim, i) => {
                   const scoreItem = scores[dim.key];
                   const raw = rawScores[i];
                   const value = toMaxScale(raw, dim.max, percentMode);
@@ -855,8 +1018,8 @@ export default function OpportunityDetailPage({
             )}
           </Section>
 
-          {/* 7. 魔鬼代言人 */}
-          {devils.length ? (
+          {/* 7. 魔鬼代言人（需求侧分析专用，热点衍生不显示） */}
+          {!isHotspot && devils.length ? (
             <section className="rounded-lg border border-red-900/50 bg-red-950/30 p-4">
               <h2 className="mb-3 text-[11px] font-semibold tracking-[0.18em] text-red-400 uppercase">
                 😈 魔鬼代言人
@@ -875,8 +1038,8 @@ export default function OpportunityDetailPage({
             </section>
           ) : null}
 
-          {/* 8. 时薪账 */}
-          {hourly ? (
+          {/* 8. 时薪账（需求侧分析专用，热点衍生不显示） */}
+          {!isHotspot && hourly ? (
             <Section title="💰 时薪账">
               <div className="flex flex-col gap-2">
                 <KeyValue label="预估单价" value={text(hourly.预估单价)} />
@@ -906,20 +1069,20 @@ export default function OpportunityDetailPage({
                 <KeyValue label="完成判据" value={text(firstStep.completion_rule)} />
               </div>
 
-              {firstStep.copyable_first_message ? (
+              {firstStepCopyContent ? (
                 <div className="mt-4 border-t border-neutral-800 pt-3">
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className={SECTION_TITLE}>开口话术</span>
+                    <span className={SECTION_TITLE}>{firstStepCopyLabel}</span>
                     <button
                       type="button"
-                      onClick={() => void handleCopy(firstStep.copyable_first_message)}
+                      onClick={() => void handleCopy(firstStepCopyContent as string)}
                       className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
                     >
-                      {copied ? "已复制 ✓" : "复制话术"}
+                      {copied ? "已复制 ✓" : firstStepCopyButton}
                     </button>
                   </div>
                   <p className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-sm break-words whitespace-pre-wrap text-neutral-200">
-                    {firstStep.copyable_first_message}
+                    {firstStepCopyContent}
                   </p>
                 </div>
               ) : null}

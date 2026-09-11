@@ -5,6 +5,11 @@ const LABELS: Record<string, string> = {
   "source:eleduck": "电鸭",
   "source:hn": "HN",
   "source:github": "GitHub",
+  "source:douyin-hot": "抖音热搜",
+  "source:weibo-hot": "微博热搜",
+  "source:zhihu-hot": "知乎热榜",
+  "source:baidu-hot": "百度热搜",
+  "source:toutiao-hot": "头条热榜",
   "clipper:xianyu": "闲鱼",
   "clipper:boss": "BOSS直聘",
 };

@@ -84,8 +84,9 @@ export async function runL1(
     : "";
   // 思考型模型：thinking 计入 max_tokens，批内条数越多 thinking 越长，
   // 固定 6000 会在 thinking 阶段被吃光导致 text 块截断（输出 usage=output=max 即此症）。
-  // 单条保持 6000（实测够用），每多一条 +1000，上限 16000。
-  const maxTokens = Math.min(6000 + 1000 * (inputs.length - 1), 16000);
+  // 单条保持 6000（实测够用），每多一条 +1500（+1000 实测余量太薄：n=6 时 output 顶到
+  // 10999/11000 截断），上限 16000。
+  const maxTokens = Math.min(6000 + 1500 * (inputs.length - 1), 16000);
   const { text, usage } = await callGateway(
     `${system}${profileBlock}\n\n${body}`,
     {

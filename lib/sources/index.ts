@@ -1,25 +1,26 @@
 import { db } from "@/lib/db";
 import { sources } from "@/lib/db/schema";
 import { eleduckAdapter } from "./eleduck";
-import { githubAdapter } from "./github";
 import { hnAdapter } from "./hn";
 import type { SourceAdapter, SourceConfig } from "./types";
 
 export * from "./types";
-export { eleduckAdapter, hnAdapter, githubAdapter };
+export { eleduckAdapter, hnAdapter };
 
-/** 适配器注册表：key → 适配器（cron 采集时按 sources.key 查） */
+/**
+ * 适配器注册表：key → 适配器（cron 采集时按 sources.key 查）
+ * github 已移除：star 涨 ≠ 有人付钱（需求信号标准不符），15 条全是历史积压且 0 今日产出。
+ * github.ts 保留文件但不注册——已有 source:github 的历史 items 靠 source-label.ts 展示。
+ */
 export const ADAPTERS: Record<string, SourceAdapter> = {
   [eleduckAdapter.key]: eleduckAdapter,
   [hnAdapter.key]: hnAdapter,
-  [githubAdapter.key]: githubAdapter,
 };
 
 /** 首次启动时预置的源（config 留空即用适配器默认值；enabled=0 的源种子时即关闭） */
 export const DEFAULT_SOURCES: { key: string; config: SourceConfig; enabled: number }[] = [
   { key: "eleduck", config: {}, enabled: 1 },
   { key: "hn", config: {}, enabled: 1 },
-  { key: "github", config: {}, enabled: 0 },
 ];
 
 /**
