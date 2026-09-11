@@ -20,6 +20,11 @@
   // 雷达地址：默认公网域名；本地调试可改回 http://127.0.0.1:3001
   const RADAR_URL = "https://opportunity.singular-test.kcura.cn/api/items";
 
+  // basic auth 凭证（服务器 nginx 层）：安装脚本后在本行填入，别提交到仓库
+  // 改这里：Tampermonkey → 管理面板 → 本脚本 → 编辑
+  const RADAR_USER = "";
+  const RADAR_PASS = "";
+
   // 站点 → 平台名（写进正文给 L1 当线索）
   function platformName() {
     const h = location.hostname;
@@ -100,10 +105,16 @@
   }
 
   function submit(content) {
+    const headers = { "Content-Type": "application/json" };
+    if (RADAR_USER) {
+      // nginx basic auth：手工构造 Authorization 头（GM_xmlhttpRequest 对 URL 内嵌凭证支持不稳）
+      headers["Authorization"] =
+        "Basic " + btoa(RADAR_USER + ":" + RADAR_PASS);
+    }
     GM_xmlhttpRequest({
       method: "POST",
       url: RADAR_URL,
-      headers: { "Content-Type": "application/json" },
+      headers,
       data: JSON.stringify({ type: "text", content }),
       timeout: 15000,
       onload(res) {
