@@ -44,14 +44,20 @@ export async function GET(req: Request) {
   return NextResponse.json({ items: filtered });
 }
 
-/** 快速录入：text 直接存，url 先抓正文。返回 item id，流水线后台跑 */
+/** 快速录入：text 直接存，url 先抓正文。source 可选（xianyu|boss，快录脚本用）。
+ *  返回 item id，流水线后台跑 */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     type?: "text" | "url";
     content?: string;
+    source?: string;
   } | null;
   const content = (body?.content || "").trim();
   const type = body?.type === "url" ? "url" : "text";
+  const source = body?.source;
+  if (source && !["xianyu", "boss"].includes(source)) {
+    return NextResponse.json({ error: "source 不合法" }, { status: 400 });
+  }
   if (!content) {
     return NextResponse.json({ error: "内容不能为空" }, { status: 400 });
   }
@@ -101,7 +107,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ id: titleDupe.id, duplicated: true });
     }
   } else {
-    title = content.split("\n")[0].slice(0, 100);
+    // 快录格式首行是【xx快录】标记：标题取「标题：」行，否则退回首行
+    const markerFirst = /^【.+快录】\s*$/.test(content.split("\n")[0].trim());
+    if (markerFirst) {
+      const titleLine = content
+        .split("\n")
+        .find((l) => l.startsWith("标题："));
+      title = titleLine ? titleLine.slice(3).trim().slice(0, 100) : content
+        .split("\n")[1]
+        ?.trim()
+        .slice(0, 100) || content.slice(0, 100);
+    } else {
+      title = content.split("\n")[0].slice(0, 100);
+    }
     text = content.slice(0, 8000);
     // 入库前双查重：归一化标题匹配（手工录入无 url，靠标题防跨源重复）
     const dupe = await findDuplicate(title, null);
@@ -118,7 +136,7 @@ export async function POST(req: Request) {
         ? createHash("sha256").update(url.trim()).digest("hex")
         : createHash("sha256").update(text.replace(/\s+/g, "")).digest("hex"),
       content: text,
-      sourceType: type,
+      sourceType: source ? `clipper:${source}` : type,
       aiStage: "pending",
       foundAt: now,
       updatedAt: now,

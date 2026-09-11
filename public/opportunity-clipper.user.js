@@ -25,6 +25,14 @@
   const RADAR_USER = "";
   const RADAR_PASS = "";
 
+  // 站点 → 来源键（写进 sourceType，供来源筛选与统计）
+  function sourceKey() {
+    const h = location.hostname;
+    if (h.includes("goofish.com") || h.includes("2.taobao.com")) return "xianyu";
+    if (h.includes("zhipin.com")) return "boss";
+    return "";
+  }
+
   // 站点 → 平台名（写进正文给 L1 当线索）
   function platformName() {
     const h = location.hostname;
@@ -115,7 +123,7 @@
       method: "POST",
       url: RADAR_URL,
       headers,
-      data: JSON.stringify({ type: "text", content }),
+      data: JSON.stringify({ type: "text", content, source: sourceKey() }),
       timeout: 15000,
       onload(res) {
         let msg = `HTTP ${res.status}`;

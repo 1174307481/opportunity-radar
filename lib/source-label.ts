@@ -1,10 +1,12 @@
-/** source_type → 展示标签（items.sourceType 实际取值："text"|"url"|"source:<key>"） */
+/** source_type → 展示标签（items.sourceType 实际取值："text"|"url"|"source:<key>"|"clipper:<key>"） */
 const LABELS: Record<string, string> = {
   text: "粘贴",
   url: "URL",
   "source:eleduck": "电鸭",
   "source:hn": "HN",
   "source:github": "GitHub",
+  "clipper:xianyu": "闲鱼",
+  "clipper:boss": "BOSS直聘",
 };
 
 export function sourceLabel(sourceType: string): string {

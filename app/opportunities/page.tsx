@@ -10,11 +10,13 @@ type Tier = "today" | "week" | "archived" | "observe";
 type Status = "new" | "researching" | "contacted" | "deal" | "ignored";
 type TierFilter = Tier | "all";
 type StatusFilter = Status | "all";
-type SourceFilter = "all" | "manual" | "eleduck" | "hn" | "github";
+type SourceFilter = "all" | "manual" | "eleduck" | "hn" | "github" | "xianyu" | "boss";
 
 const SOURCE_OPTIONS: { key: SourceFilter; label: string }[] = [
   { key: "all", label: "全部来源" },
   { key: "manual", label: "手动录入" },
+  { key: "xianyu", label: "闲鱼" },
+  { key: "boss", label: "BOSS直聘" },
   { key: "eleduck", label: "电鸭社区" },
   { key: "hn", label: "Hacker News" },
   { key: "github", label: "GitHub" },

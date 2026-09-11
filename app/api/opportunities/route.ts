@@ -39,13 +39,17 @@ export async function GET(req: Request) {
   if (statusParam && !isStatus(statusParam)) {
     return NextResponse.json({ error: "status 不合法" }, { status: 400 });
   }
-  // source 过滤：manual = 手动录入（text/url 合并），其余按 source:<key> 精确匹配；all/空 = 不过滤
-  const SOURCE_KEYS = ["eleduck", "hn", "github"] as const;
+  // source 过滤：manual = 手动录入（text/url），快录平台按 clipper:<key>，采集源按 source:<key>
+  const SOURCE_KEYS = ["eleduck", "hn", "github", "xianyu", "boss"] as const;
+  const sourceTypeOf = (key: string) =>
+    ["eleduck", "hn", "github"].includes(key)
+      ? `source:${key}`
+      : `clipper:${key}`;
   let sourceCond: SQL | null = null;
   if (sourceParam === "manual") {
     sourceCond = inArray(items.sourceType, ["text", "url"]);
   } else if ((SOURCE_KEYS as readonly string[]).includes(sourceParam)) {
-    sourceCond = eq(items.sourceType, `source:${sourceParam}`);
+    sourceCond = eq(items.sourceType, sourceTypeOf(sourceParam));
   } else if (sourceParam && sourceParam !== "all") {
     return NextResponse.json({ error: "source 不合法" }, { status: 400 });
   }
