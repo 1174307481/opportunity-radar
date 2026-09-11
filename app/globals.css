@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ---------------- 设计令牌 ---------------- */
+/* 深色终端工具感：近黑底 + 中性面板 + 红色系主色（🔴 今天看的语义色） */
+@theme {
+  /* 底色 / 面板 / 描边 */
+  --color-canvas: #0a0a0a;
+  --color-hairline: #262626;
+  /* 语义主色（今天 / 重点） */
+  --color-accent: #ef4444;
+  /* 正文色 */
+  --color-ink: #e5e5e5;
+}
+
+/* ---------------- 基础 ---------------- */
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  html {
+    color-scheme: dark;
+    scrollbar-color: #404040 transparent;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  ::selection {
+    background-color: #7f1d1d;
+    color: #fef2f2;
+  }
+
+  /* 键盘焦点环（无障碍，仅键盘触发） */
+  :where(a, button, select, summary, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------- 公共组件样式 ---------------- */
+@layer components {
+  /* 数字统一等宽，避免跳动 */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 卡片 / 面板 */
+  .panel {
+    @apply rounded-lg border border-hairline bg-neutral-900/40;
+  }
+
+  .panel-header {
+    @apply flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-hairline px-4 py-3;
+  }
+
+  /* 区块标题：小号 + 大写 + 字距，终端感层级 */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-neutral-400;
+  }
+
+  /* 徽章：统一形状，颜色由语义类决定 */
+  .badge {
+    @apply inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap;
+  }
+
+  .badge-neutral {
+    @apply border-hairline bg-neutral-900 text-neutral-400;
+  }
+
+  /* 按钮：统一尺寸 / 交互反馈（hover 提亮、按下微缩、禁用降透明度） */
+  .btn {
+    @apply inline-flex shrink-0 select-none items-center justify-center gap-1.5 rounded-md border border-hairline bg-neutral-900 px-2.5 py-1 text-xs font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-solid {
+    @apply border-neutral-700 bg-neutral-800 text-neutral-100 hover:border-neutral-600 hover:bg-neutral-700;
+  }
+
+  .btn-primary {
+    @apply rounded-lg border-emerald-900 bg-emerald-950/60 px-4 py-1.5 text-sm text-emerald-200 hover:border-emerald-700 hover:bg-emerald-900/60;
+  }
+
+  /* 表单控件：输入框 / 下拉框共用 */
+  .field {
+    @apply w-full min-w-0 rounded-md border border-hairline bg-neutral-900/60 px-3 py-1.5 text-sm text-neutral-100 transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-neutral-600 focus:bg-neutral-900 focus:ring-2 focus:ring-neutral-700/50;
+  }
+
+  /* 行内小标签（软技能等） */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md border border-hairline bg-neutral-900 px-2 py-1 text-xs text-neutral-300;
+  }
+
+  /* 列表：统一分隔线 + 圆角 + 逐行 hover */
+  .list {
+    @apply divide-y divide-hairline overflow-hidden rounded-lg border border-hairline;
+  }
+
+  /* 提示条 */
+  .alert {
+    @apply rounded-lg border px-3 py-2 text-sm;
+  }
+
+  .alert-danger {
+    @apply border-red-900 bg-red-950/40 text-red-300;
+  }
+
+  .alert-success {
+    @apply border-emerald-900 bg-emerald-950/40 text-xs leading-5 text-emerald-300;
+  }
+}
