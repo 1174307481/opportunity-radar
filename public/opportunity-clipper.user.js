@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         红线平台快录 → Opportunity Radar（闲鱼/BOSS直聘）
 // @namespace    opportunity-radar
-// @version      0.2.0
+// @version      0.3.0
 // @description  在闲鱼/BOSS直聘宝贝与职位页，一键把「标题+价格/薪资+描述+链接」投进机会雷达。单条、手动触发、不做任何批量采集（等价于手动复制粘贴）。
 // @author       opportunity-radar
 // @match        https://www.goofish.com/item*
@@ -9,6 +9,7 @@
 // @match        https://2.taobao.com/item*
 // @match        https://www.zhipin.com/job_detail/*
 // @grant        GM_xmlhttpRequest
+// @connect      opportunity.singular-test.kcura.cn
 // @connect      127.0.0.1
 // @connect      localhost
 // ==/UserScript==
@@ -16,8 +17,8 @@
 (function () {
   "use strict";
 
-  // 雷达地址：本地服务换了端口就改这里
-  const RADAR_URL = "http://127.0.0.1:3001/api/items";
+  // 雷达地址：默认公网域名；本地调试可改回 http://127.0.0.1:3001
+  const RADAR_URL = "https://opportunity.singular-test.kcura.cn/api/items";
 
   // 站点 → 平台名（写进正文给 L1 当线索）
   function platformName() {

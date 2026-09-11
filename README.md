@@ -76,6 +76,8 @@ npm run build && npm start   # http://localhost:3000
 环境变量（见 `.env.local.example`）：LLM 网关走已有的 `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`；自动采集保护用 `CRON_SECRET`。
 ⚠️ 「今天做这一件事」按服务器本地日历日计算，Docker/服务器部署时请设置 `TZ=Asia/Shanghai`，否则焦点会在早 8 点错位过期。
 
+线上部署（2026-09-12 起）：`https://opportunity.singular-test.kcura.cn/` —— 边缘 nginx（本机 `/etc/nginx/sites-enabled/opportunity-singular-test.conf`，复用 `*.singular-test.kcura.cn` 通配证书）反代 `127.0.0.1:3001`；应用只绑回环，公网直连 3001 已关闭。重启命令：`nohup npx next start -H 127.0.0.1 -p 3001 > /tmp/radar-3001.log 2>&1 &`。
+
 定时采集（可选，本地 crontab，每 30 分钟一轮）：
 
 ```cron
@@ -91,7 +93,7 @@ npm run build && npm start   # http://localhost:3000
 安装（一次性）：
 
 1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/) 扩展
-2. 服务启动后打开 `http://localhost:3001/opportunity-clipper.user.js`，Tampermonkey 会弹出安装页（端口不一致就改脚本顶部 `RADAR_URL`）
+2. 打开 `https://opportunity.singular-test.kcura.cn/opportunity-clipper.user.js`，Tampermonkey 会弹出安装页（脚本默认投递到该域名；纯本地调试可改脚本顶部 `RADAR_URL`）
 3. 打开任意闲鱼宝贝页或 BOSS 职位详情页，右下角出现「⚡ 投雷达」按钮
 
 使用：进详情页 → 点「⚡ 投雷达」→ 确认预览 → 自动分析。描述抓取不准时，先在页面选中描述文字再点按钮（选中文本优先）。
