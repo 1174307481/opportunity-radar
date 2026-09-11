@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { sourceLabel } from "@/lib/source-label";
 
 /** ---------- 接口定义 ---------- */
 
@@ -27,6 +28,7 @@ interface TodayItem {
   status: string;
   verdict: string;
   firstStep: FirstStep | null;
+  sourceType: string;
 }
 
 interface WeekItem {
@@ -37,6 +39,7 @@ interface WeekItem {
   score: number | null;
   skillMatch: number | null;
   status: string;
+  sourceType: string;
 }
 
 interface Counts {
@@ -777,6 +780,12 @@ export default function HomePage() {
                       <span className="rounded border border-neutral-700 px-1.5 py-0.5 text-[11px] text-neutral-400">
                         {item.type}
                       </span>
+                      <span
+                        title={`来源：${sourceLabel(item.sourceType)}`}
+                        className="rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 text-[11px] text-neutral-500"
+                      >
+                        {sourceLabel(item.sourceType)}
+                      </span>
                       {item.fastTrack ? (
                         <span
                           title="快通道：预算明确+核心技能命中，先验证真身再谈开工"
@@ -877,6 +886,9 @@ export default function HomePage() {
                   </Link>
                   <span className="shrink-0 rounded border border-neutral-700 px-1.5 py-0.5 text-[11px] text-neutral-500">
                     {item.type}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-neutral-600">
+                    {sourceLabel(item.sourceType)}
                   </span>
                 </div>
                 <span className="shrink-0 text-xs text-neutral-500">

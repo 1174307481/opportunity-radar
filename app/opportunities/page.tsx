@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { sourceLabel } from "@/lib/source-label";
 
 /** ---------- 接口定义 ---------- */
 
@@ -23,6 +24,7 @@ interface Row {
   skillMatch: number | null;
   fastTrack: boolean;
   status: string;
+  sourceType: string;
   createdAt: number;
 }
 
@@ -354,6 +356,9 @@ export default function OpportunitiesPage() {
                   </Link>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="badge badge-neutral">{row.type}</span>
+                    <span className="badge badge-neutral" title={`来源：${sourceLabel(row.sourceType)}`}>
+                      {sourceLabel(row.sourceType)}
+                    </span>
                     {tier ? (
                       <span className={`badge ${tier.className}`}>{tier.label}</span>
                     ) : (

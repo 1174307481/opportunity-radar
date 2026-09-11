@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { sourceLabel } from "@/lib/source-label";
 
 /** ---------- 接口定义 ---------- */
 
@@ -1038,7 +1039,7 @@ export default function OpportunityDetailPage({
         <div className="mt-3 flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
             <span className={`${BADGE} border-neutral-800 bg-neutral-900 text-neutral-400`}>
-              {item.sourceType === "manual_url" ? "URL" : "粘贴"}
+              来源：{sourceLabel(item.sourceType)}
             </span>
             <span>采集 {formatTime(item.foundAt)}</span>
             {item.url ? (

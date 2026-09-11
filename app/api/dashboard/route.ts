@@ -88,6 +88,7 @@ export async function GET() {
       fastTrack: opportunities.fastTrack,
       status: opportunities.status,
       analysis: opportunities.analysis,
+      sourceType: items.sourceType,
       createdAt: opportunities.createdAt,
     })
     .from(opportunities)
@@ -116,6 +117,7 @@ export async function GET() {
       status: r.status,
       verdict: a?.verdict ?? "",
       firstStep: a?.first_step ?? null,
+      sourceType: r.sourceType,
     };
   });
 
@@ -158,6 +160,7 @@ export async function GET() {
       score: opportunities.score,
       skillMatch: opportunities.skillMatch,
       status: opportunities.status,
+      sourceType: items.sourceType,
     })
     .from(opportunities)
     .innerJoin(items, eq(items.id, opportunities.itemId))

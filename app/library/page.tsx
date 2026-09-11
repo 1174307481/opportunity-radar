@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { sourceLabel } from "@/lib/source-label";
 
 /** 后端 /api/items?query= 返回的行 */
 interface LibraryItem {
@@ -34,11 +35,6 @@ interface StageMeta {
   className: string;
   spin?: boolean;
 }
-
-const SOURCE_LABEL: Record<string, string> = {
-  manual_text: "粘贴",
-  manual_url: "URL",
-};
 
 const STAGE_META: Record<string, StageMeta> = {
   pending: {
@@ -230,7 +226,7 @@ export default function LibraryPage() {
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <span className="badge badge-neutral">
-                        {SOURCE_LABEL[item.sourceType] ?? item.sourceType}
+                        {sourceLabel(item.sourceType)}
                       </span>
                       <span className={`badge ${stageClass}`} title={item.errorMessage ?? undefined}>
                         {spinning && <Spinner />}

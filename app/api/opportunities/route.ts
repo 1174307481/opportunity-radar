@@ -68,6 +68,7 @@ export async function GET(req: Request) {
       skillMatch: opportunities.skillMatch,
       fastTrack: opportunities.fastTrack,
       status: opportunities.status,
+      sourceType: items.sourceType,
       createdAt: opportunities.createdAt,
     })
     .from(opportunities)
@@ -89,6 +90,7 @@ export async function GET(req: Request) {
       skillMatch: r.skillMatch,
       fastTrack: !!r.fastTrack,
       status: r.status,
+      sourceType: r.sourceType,
       createdAt: r.createdAt,
     })),
   });

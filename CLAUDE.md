@@ -6,11 +6,11 @@
 
 | 后缀 | 完整模型名 |
 | --- | --- |
-| zxk | glm-5.3-flash-zxk |
-| xyf | glm-5.3-flash-xyf |
-| zxs | glm-5.3-flash-zxs |
-| zfg | glm-5.3-flash-zfg |
-| zjk | glm-5.3-flash-zjk |
+| zxk | glm-5.3-zxk |
+| xyf | glm-5.3-xyf |
+| zxs | glm-5.3-zxs |
+| zfg | glm-5.3-zfg |
+| zjk | glm-5.3-zjk |
 
 - 多 agent 并行时按后缀混搭分配（如 2×zxs + 2×zfg + 2×zxk），不同后缀≈不同视角。
 - 主会话模型与子 agent 模型相互独立，派活时按任务性质选后缀即可。
